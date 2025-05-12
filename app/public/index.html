@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Limiter Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        pre {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            overflow: auto;
+        }
+        .error {
+            color: #D8000C;
+        }
+        .success {
+            color: #4F8A10;
+        }
+        .info {
+            background-color: #e7f3fe;
+            border-left: 6px solid #2196F3;
+            padding: 10px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Rate Limiter Test</h1>
+    <p>This page demonstrates endpoint-specific rate limiting using express-rate-limit and rate-limit-redis.</p>
+    
+    <div class="info">
+        <p><strong>How it works:</strong> You can make only 1 API request every 3 seconds to the <em>same endpoint</em>.</p>
+        <p>If you click the same button more than once within 3 seconds, you'll receive a 429 Too Many Requests error.</p>
+        <p>However, you can still call different endpoints without waiting!</p>
+    </div>
+    
+    <div>
+        <button id="testButton">Test API</button>
+        <button id="anotherTestButton">Another Test API</button>
+        <button id="resetButton" style="background-color: #f44336;">Reset Countdown</button>
+    </div>
+    
+    <h2>Response:</h2>
+    <pre id="response">Click a button to make an API request</pre>
+    
+    <script>
+        document.getElementById('testButton').addEventListener('click', () => {
+            fetchAPI('/api/test', 'testButton');
+        });
+        
+        document.getElementById('anotherTestButton').addEventListener('click', () => {
+            fetchAPI('/api/another-test', 'anotherTestButton');
+        });
+        
+        document.getElementById('resetButton').addEventListener('click', () => {
+            document.getElementById('response').innerHTML = 'Click a button to make an API request';
+            enableAllButtons();
+        });
+        
+        function enableAllButtons() {
+            document.getElementById('testButton').disabled = false;
+            document.getElementById('testButton').textContent = 'Test API';
+            document.getElementById('anotherTestButton').disabled = false;
+            document.getElementById('anotherTestButton').textContent = 'Another Test API';
+        }
+        
+        async function fetchAPI(endpoint, buttonId) {
+            const responseElement = document.getElementById('response');
+            
+            try {
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseElement.innerHTML = `<span class="success">SUCCESS (${response.status}):</span>\n${JSON.stringify(data, null, 2)}`;
+                    
+                    // Show rate limit headers if available
+                    const rateLimitLimit = response.headers.get('X-RateLimit-Limit');
+                    const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining');
+                    const rateLimitReset = response.headers.get('X-RateLimit-Reset');
+                    
+                    if (rateLimitLimit && rateLimitRemaining && rateLimitReset) {
+                        responseElement.innerHTML += `\n\n<span class="info">Rate Limit Info:</span>\n`;
+                        responseElement.innerHTML += `Limit: ${rateLimitLimit}\n`;
+                        responseElement.innerHTML += `Remaining: ${rateLimitRemaining}\n`;
+                        responseElement.innerHTML += `Reset: ${new Date(rateLimitReset * 1000).toLocaleTimeString()}`;
+                    }
+                } else {
+                    responseElement.innerHTML = `<span class="error">ERROR (${response.status}):</span>\n${JSON.stringify(data, null, 2)}`;
+                    
+                    // Only disable the button that was clicked (endpoint-specific rate limiting)
+                    const button = document.getElementById(buttonId);
+                    button.disabled = true;
+                    
+                    let countdown = 3;
+                    button.textContent = `Wait ${countdown}s`;
+                    
+                    const timer = setInterval(() => {
+                        countdown--;
+                        button.textContent = `Wait ${countdown}s`;
+                        
+                        if (countdown <= 0) {
+                            clearInterval(timer);
+                            button.disabled = false;
+                            button.textContent = buttonId === 'testButton' ? 'Test API' : 'Another Test API';
+                        }
+                    }, 1000);
+                }
+            } catch (error) {
+                responseElement.innerHTML = `<span class="error">FETCH ERROR:</span>\n${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html> 
