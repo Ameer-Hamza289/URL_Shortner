@@ -45,4 +45,3 @@ jspm_packages/
 .idea/
 *.sublime-project
 *.sublime-workspace 
-config.bat
